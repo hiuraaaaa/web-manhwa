@@ -4,9 +4,14 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Skip middleware if env vars not set
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -25,25 +30,22 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // Protect all /admin routes except /admin/login
-  if (
-    !user &&
-    request.nextUrl.pathname.startsWith("/admin") &&
-    !request.nextUrl.pathname.startsWith("/admin/login")
-  ) {
+  const isAdminLogin = request.nextUrl.pathname === "/admin/login";
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+
+  // Logged in + trying to access login → redirect to /admin
+  if (user && isAdminLogin) {
     const url = request.nextUrl.clone();
-    url.pathname = "/admin/login";
+    url.pathname = "/admin";
     return NextResponse.redirect(url);
   }
 
-  // Redirect logged-in admin away from login page
-  if (user && request.nextUrl.pathname === "/admin/login") {
+  // Not logged in + trying to access admin (not login page) → redirect to login
+  if (!user && isAdminRoute && !isAdminLogin) {
     const url = request.nextUrl.clone();
-    url.pathname = "/admin";
+    url.pathname = "/admin/login";
     return NextResponse.redirect(url);
   }
 
