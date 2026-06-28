@@ -161,9 +161,10 @@ interface BadgeProps {
   children: React.ReactNode;
   variant?: "default" | "ongoing" | "completed" | "hiatus";
   className?: string;
+  onClick?: () => void;
 }
 
-export function Badge({ children, variant = "default", className }: BadgeProps) {
+export function Badge({ children, variant = "default", className, onClick }: BadgeProps) {
   const variants = {
     default: "bg-bg-elevated text-text-secondary border-bg-border",
     ongoing: "bg-status-ongoing/15 text-status-ongoing border-status-ongoing/30",
@@ -171,7 +172,7 @@ export function Badge({ children, variant = "default", className }: BadgeProps) 
     hiatus: "bg-status-hiatus/15 text-status-hiatus border-status-hiatus/30",
   };
   return (
-    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border", variants[variant], className)}>
+    <span onClick={onClick} className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border", variants[variant], className)}>
       {children}
     </span>
   );
