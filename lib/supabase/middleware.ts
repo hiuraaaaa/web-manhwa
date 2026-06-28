@@ -4,14 +4,13 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  // Skip middleware if env vars not set
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
     return supabaseResponse;
   }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
         getAll() {
@@ -35,14 +34,12 @@ export async function updateSession(request: NextRequest) {
   const isAdminLogin = request.nextUrl.pathname === "/admin/login";
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
 
-  // Logged in + trying to access login → redirect to /admin
   if (user && isAdminLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin";
     return NextResponse.redirect(url);
   }
 
-  // Not logged in + trying to access admin (not login page) → redirect to login
   if (!user && isAdminRoute && !isAdminLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
