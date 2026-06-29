@@ -188,7 +188,7 @@ export function ChapterUploadForm({ manhwaId, manhwaSlug, suggestedNumber }: Pro
       const { error: pagesErr } = await supabase.from("pages").insert(pageInserts);
       if (pagesErr) throw pagesErr;
 
-      router.push(`/admin/(protected)/manhwa/${manhwaId}/chapters`);
+      router.push(`/admin/manhwa/${manhwaId}/chapters`);
       router.refresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Upload gagal");
