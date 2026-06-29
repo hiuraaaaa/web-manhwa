@@ -1,14 +1,15 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, LayoutDashboard, BookMarked, LogOut, Plus } from "lucide-react";
+import { BookOpen, LayoutDashboard, BookMarked, LogOut, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/manhwa", label: "Manhwa", icon: BookMarked, exact: false },
+  { href: "/admin/(protected)/manhwa", label: "Manhwa", icon: BookMarked, exact: false },
 ];
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 export function AdminSidebar({ userEmail }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const [open, setOpen] = useState(false);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -26,67 +28,97 @@ export function AdminSidebar({ userEmail }: Props) {
     router.refresh();
   }
 
-  return (
-    <aside className="w-56 bg-bg-surface border-r border-bg-border flex flex-col flex-shrink-0">
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-4 py-4 border-b border-bg-border">
-        <Link href="/" className="flex items-center gap-2 text-text-primary font-display font-semibold">
-          <BookOpen className="w-5 h-5 text-accent" />
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 font-display font-bold text-gray-900">
+          <BookOpen className="w-5 h-5 text-red-500" strokeWidth={2.5} />
           ManhwaKu
         </Link>
-        <span className="text-xs text-text-muted mt-0.5 block">Admin Panel</span>
+        <button onClick={() => setOpen(false)} className="md:hidden p-1 rounded-lg hover:bg-gray-100">
+          <X className="w-4 h-4 text-gray-500" />
+        </button>
+      </div>
+
+      {/* Add button */}
+      <div className="px-4 pt-4 pb-2">
+        <Link
+          href="/admin/(protected)/manhwa/new"
+          onClick={() => setOpen(false)}
+          className="flex items-center justify-center gap-2 w-full py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Tambah Manhwa
+        </Link>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-3 flex flex-col gap-1">
+      <nav className="flex-1 px-3 py-2 flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => {
           const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setOpen(false)}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
                 active
-                  ? "bg-accent/15 text-accent font-medium"
-                  : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+                  ? "bg-red-50 text-red-600"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               )}
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className={cn("w-4 h-4", active ? "text-red-500" : "text-gray-400")} />
               {item.label}
             </Link>
           );
         })}
-
-        <div className="mt-2 pt-2 border-t border-bg-border">
-          <Link
-            href="/admin/manhwa/new"
-            className={cn(
-              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors",
-              pathname === "/admin/manhwa/new"
-                ? "bg-accent text-white font-medium"
-                : "text-accent border border-accent/30 hover:bg-accent/10"
-            )}
-          >
-            <Plus className="w-4 h-4" />
-            Tambah Manhwa
-          </Link>
-        </div>
       </nav>
 
       {/* User */}
-      <div className="p-3 border-t border-bg-border">
-        <div className="px-3 py-2 mb-1">
-          <p className="text-xs text-text-muted truncate">{userEmail}</p>
+      <div className="p-4 border-t border-gray-100">
+        <div className="flex items-center gap-3 px-1 mb-2">
+          <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-red-500">{userEmail[0].toUpperCase()}</span>
+          </div>
+          <p className="text-xs text-gray-500 truncate">{userEmail}</p>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-red-400 hover:bg-red-400/10 transition-colors"
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors"
         >
-          <LogOut className="w-4 h-4" />
-          Logout
+          <LogOut className="w-4 h-4" /> Logout
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {open && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl z-50">
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-56 bg-white border-r border-gray-100 flex-col flex-shrink-0 h-screen sticky top-0">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile top bar trigger */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-100 px-4 h-13 py-2.5 flex items-center gap-3">
+        <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-gray-100">
+          <BookMarked className="w-5 h-5 text-gray-700" />
+        </button>
+        <span className="font-display font-bold text-gray-900 flex items-center gap-1.5">
+          <BookOpen className="w-4 h-4 text-red-500" /> Admin
+        </span>
+      </div>
+    </>
   );
 }
