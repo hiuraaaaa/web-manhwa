@@ -2,10 +2,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, BookOpen, X, Play } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { BookOpen, ChevronLeft, ChevronRight, X, Home, Search, Bookmark, Grid } from "lucide-react";
 import { ManhwaWithLatestChapter, STATUS_LABELS, ManhwaStatus, GENRES } from "@/lib/types";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, getBookmarks } from "@/lib/utils";
 
 interface Props {
   manhwaList: ManhwaWithLatestChapter[];
@@ -21,16 +21,10 @@ const STATUS_DOT: Record<string, string> = {
   hiatus: "bg-amber-500",
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  ongoing: "bg-emerald-100 text-emerald-700",
-  completed: "bg-blue-100 text-blue-700",
-  hiatus: "bg-amber-100 text-amber-700",
-};
-
 function ManhwaCard({ manhwa }: { manhwa: ManhwaWithLatestChapter }) {
   const latest = manhwa.chapters?.[0];
   return (
-    <Link href={`/manhwa/${manhwa.slug}`} className="group min-w-[110px] w-[110px] flex flex-col gap-1.5 flex-shrink-0">
+    <Link href={`/manhwa/${manhwa.slug}`} className="group min-w-[110px] w-[110px] flex flex-col gap-1.5 flex-shrink-0 snap-start">
       <div className="relative aspect-[3/4.2] rounded-xl overflow-hidden bg-gray-100 shadow-sm group-hover:shadow-md transition-shadow">
         {manhwa.cover_url ? (
           <Image src={manhwa.cover_url} alt={manhwa.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="120px" />
@@ -50,46 +44,74 @@ function ManhwaCard({ manhwa }: { manhwa: ManhwaWithLatestChapter }) {
   );
 }
 
-function CardSkeleton() {
+function HorizontalSection({ title, subtitle, items, href }: {
+  title: string;
+  subtitle: string;
+  items: ManhwaWithLatestChapter[];
+  href?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  function scroll(dir: "left" | "right") {
+    scrollRef.current?.scrollBy({ left: dir === "left" ? -250 : 250, behavior: "smooth" });
+  }
   return (
-    <div className="min-w-[110px] w-[110px] flex flex-col gap-1.5 flex-shrink-0">
-      <div className="aspect-[3/4.2] rounded-xl bg-gray-100 animate-pulse" />
-      <div className="h-2.5 w-3/4 bg-gray-100 rounded animate-pulse" />
-      <div className="h-2.5 w-1/2 bg-gray-100 rounded animate-pulse" />
-    </div>
-  );
-}
-
-function HeroSkeleton() {
-  return (
-    <div className="w-full aspect-[16/9] sm:aspect-[21/9] bg-gray-100 animate-pulse flex items-end p-5 gap-4">
-      <div className="w-20 aspect-[3/4] rounded-xl bg-gray-200" />
-      <div className="flex flex-col gap-2 flex-1 pb-2">
-        <div className="h-6 w-2/3 bg-gray-200 rounded" />
-        <div className="h-3 w-1/3 bg-gray-200 rounded" />
+    <section className="mt-7">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          {href ? (
+            <Link href={href} className="group flex items-center gap-0.5">
+              <h2 className="font-display font-bold text-base text-gray-900 group-hover:text-red-500 transition-colors">{title}</h2>
+              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-red-400 transition-colors" />
+            </Link>
+          ) : (
+            <h2 className="font-display font-bold text-base text-gray-900">{title}</h2>
+          )}
+          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">{subtitle}</p>
+        </div>
+        <div className="flex gap-1.5">
+          <button onClick={() => scroll("left")} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+            <ChevronLeft className="w-4 h-4 text-gray-500" />
+          </button>
+          <button onClick={() => scroll("right")} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+            <ChevronRight className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
       </div>
-    </div>
+      <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x">
+        {items.map(m => <ManhwaCard key={m.id} manhwa={m} />)}
+      </div>
+    </section>
   );
 }
 
 export function HomeClient({ manhwaList, bannerItems, defaultQ = "", defaultStatus = "", defaultGenre = "" }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [heroIndex, setHeroIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
   const [q, setQ] = useState(defaultQ);
-  const [showSearch, setShowSearch] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [showGenre, setShowGenre] = useState(false);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [liveResults, setLiveResults] = useState<ManhwaWithLatestChapter[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const carouselItems = bannerItems.length > 0 ? [...bannerItems, bannerItems[0]] : [];
 
-  // Auto advance
+  useEffect(() => {
+    const bms = getBookmarks();
+    setBookmarkCount(Object.keys(bms).length);
+  }, []);
+
+  // Auto advance banner
   useEffect(() => {
     if (bannerItems.length <= 1) return;
     autoRef.current = setInterval(() => setHeroIndex(p => p + 1), 5000);
     return () => { if (autoRef.current) clearInterval(autoRef.current); };
   }, [bannerItems.length]);
 
-  // Reset to 0 after last fake slide
   useEffect(() => {
     if (bannerItems.length > 0 && heroIndex === bannerItems.length) {
       const t = setTimeout(() => { setIsTransitioning(false); setHeroIndex(0); }, 700);
@@ -104,98 +126,168 @@ export function HomeClient({ manhwaList, bannerItems, defaultQ = "", defaultStat
     }
   }, [isTransitioning, heroIndex]);
 
+  // Focus search input when opened
+  useEffect(() => {
+    if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 300);
+    else { setQ(""); setLiveResults([]); }
+  }, [searchOpen]);
+
+  // Live search debounce
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.length > 1) {
+      searchTimer.current = setTimeout(() => {
+        const results = manhwaList.filter(m =>
+          m.title.toLowerCase().includes(q.toLowerCase())
+        ).slice(0, 6);
+        setLiveResults(results);
+      }, 300);
+    } else {
+      setLiveResults([]);
+    }
+  }, [q, manhwaList]);
+
   function resetAuto() {
     if (autoRef.current) clearInterval(autoRef.current);
     autoRef.current = setInterval(() => setHeroIndex(p => p + 1), 5000);
   }
 
-  function nextHero() { setHeroIndex(p => p + 1); resetAuto(); }
-  function prevHero() {
-    setHeroIndex(p => p === 0 ? bannerItems.length - 1 : p - 1);
-    resetAuto();
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (q.trim()) {
+      router.push(`/?q=${encodeURIComponent(q)}`);
+      setSearchOpen(false);
+    }
   }
 
-  function handleSearch() {
-    if (q.trim()) router.push(`/?q=${encodeURIComponent(q)}`);
-    else router.push("/");
-  }
-
-  // Sections
   const ongoing = manhwaList.filter(m => m.status === "ongoing");
   const completed = manhwaList.filter(m => m.status === "completed");
-  const latest = [...manhwaList].slice(0, 12);
-
   const hasFilter = defaultQ || defaultStatus || defaultGenre;
 
+  const bookmarks = getBookmarks();
+  const bookmarkedManhwa = Object.values(bookmarks);
+
   return (
-    <div className="min-h-screen bg-white pb-20">
-      {/* NAVBAR */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1.5 font-display font-bold text-lg text-gray-900 flex-shrink-0">
+    <div className="min-h-screen bg-white pb-24">
+      {/* NAVBAR — floating pill style */}
+      <div className="sticky top-3 z-50 px-4 max-w-2xl mx-auto">
+        <div className="relative bg-white/90 backdrop-blur-md h-14 px-5 rounded-2xl flex items-center justify-between border border-gray-200 shadow-lg overflow-hidden">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-1.5 font-display font-bold text-gray-900 z-10">
             <BookOpen className="w-5 h-5 text-red-500" strokeWidth={2.5} />
             ManhwaKu
           </Link>
 
-          {/* Desktop search */}
-          <div className="hidden sm:flex flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari manhwa..."
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSearch()}
-              className="w-full pl-9 pr-4 py-2 rounded-full bg-gray-100 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-gray-200 transition-colors"
-            />
-            {q && <button onClick={() => { setQ(""); router.push("/"); }} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-gray-400" /></button>}
+          {/* Right actions */}
+          <div className="flex items-center gap-2 z-10">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-red-50 hover:text-red-500 border border-gray-200 transition-colors"
+            >
+              <Search className="w-4 h-4" strokeWidth={2.5} />
+            </button>
           </div>
 
-          <button className="sm:hidden ml-auto p-1.5 rounded-full hover:bg-gray-100" onClick={() => setShowSearch(s => !s)}>
-            <Search className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
-
-        {/* Mobile search */}
-        {showSearch && (
-          <div className="sm:hidden px-4 pb-2.5">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          {/* Search overlay inside navbar */}
+          <div className={cn(
+            "absolute inset-0 bg-white z-20 flex items-center px-4 transition-all duration-300",
+            searchOpen ? "opacity-100 translate-x-0" : "opacity-0 translate-x-6 pointer-events-none"
+          )}>
+            <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-3">
+              <button type="submit" className="text-red-500 shrink-0">
+                <Search className="w-5 h-5" strokeWidth={2.5} />
+              </button>
               <input
-                autoFocus
+                ref={searchInputRef}
                 type="text"
                 placeholder="Cari manhwa..."
                 value={q}
                 onChange={e => setQ(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSearch()}
-                className="w-full pl-9 pr-4 py-2 rounded-full bg-gray-100 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                className="flex-1 bg-transparent text-gray-900 text-sm font-semibold outline-none placeholder:text-gray-400"
               />
+              <button type="button" onClick={() => setSearchOpen(false)} className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">
+                <X className="w-5 h-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Live search results */}
+        {searchOpen && q.length > 1 && (
+          <div className="absolute top-16 left-4 right-4 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+            {liveResults.length > 0 ? (
+              liveResults.map(m => (
+                <Link
+                  key={m.id}
+                  href={`/manhwa/${m.slug}`}
+                  onClick={() => setSearchOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
+                >
+                  {m.cover_url && (
+                    <div className="relative w-8 aspect-[3/4] rounded-lg overflow-hidden flex-shrink-0">
+                      <Image src={m.cover_url} alt="" fill className="object-cover" sizes="32px" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{m.title}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{m.chapters?.length ?? 0} chapter · {STATUS_LABELS[m.status as ManhwaStatus]}</p>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-gray-400 font-medium">Tidak ditemukan</div>
+            )}
+            <button
+              onClick={() => { router.push(`/?q=${encodeURIComponent(q)}`); setSearchOpen(false); }}
+              className="w-full px-4 py-3 text-center text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100"
+            >
+              Lihat semua hasil untuk "{q}"
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Genre sheet */}
+      {showGenre && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowGenre(false)} />
+          <div className="relative w-full max-w-2xl mx-auto bg-white rounded-t-3xl p-5 pb-24 max-h-[70vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-bold text-lg text-gray-900">Genre</h3>
+              <button onClick={() => setShowGenre(false)} className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+                <X className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {GENRES.map(g => (
+                <Link
+                  key={g}
+                  href={`/?genre=${encodeURIComponent(g)}`}
+                  onClick={() => setShowGenre(false)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
+                    defaultGenre === g
+                      ? "bg-red-500 border-red-500 text-white"
+                      : "border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 bg-white"
+                  )}
+                >
+                  {g}
+                </Link>
+              ))}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Filter pills */}
-        {!hasFilter && (
-          <div className="max-w-2xl mx-auto px-4 pb-2 flex gap-1.5 overflow-x-auto scrollbar-none">
-            {(["ongoing", "completed", "hiatus"] as ManhwaStatus[]).map(s => (
-              <Link key={s} href={`/?status=${s}`}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500 transition-colors bg-white"
-              >
-                <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[s])} />
-                {STATUS_LABELS[s]}
-              </Link>
-            ))}
-          </div>
-        )}
-      </header>
-
-      {/* SEARCH RESULTS */}
+      {/* SEARCH / FILTER RESULTS */}
       {hasFilter ? (
-        <main className="max-w-2xl mx-auto px-4 py-5">
+        <main className="max-w-2xl mx-auto px-4 pt-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-semibold text-gray-700">
-              {manhwaList.length} hasil{defaultQ ? ` untuk "${defaultQ}"` : ""}
+              {manhwaList.length} hasil
+              {defaultQ ? ` untuk "${defaultQ}"` : ""}
               {defaultStatus ? ` · ${STATUS_LABELS[defaultStatus as ManhwaStatus]}` : ""}
+              {defaultGenre ? ` · ${defaultGenre}` : ""}
             </p>
             <Link href="/" className="text-xs text-red-500 hover:underline">Reset</Link>
           </div>
@@ -223,84 +315,74 @@ export function HomeClient({ manhwaList, bannerItems, defaultQ = "", defaultStat
         <>
           {/* HERO BANNER */}
           {bannerItems.length > 0 && (
-            <div className="max-w-2xl mx-auto relative overflow-hidden bg-gray-100">
-              <div
-                className={cn("flex h-full", isTransitioning ? "transition-transform duration-700" : "")}
-                style={{ transform: `translate3d(-${heroIndex * 100}%, 0, 0)` }}
-              >
-                {carouselItems.map((item, i) => (
-                  <Link key={i} href={`/manhwa/${item.slug}`} className="min-w-full relative aspect-[16/9] sm:aspect-[21/9] block overflow-hidden bg-gray-200">
-                    {item.cover_url && (
-                      <Image src={item.cover_url} alt={item.title} fill className="object-cover" priority={i === 0} sizes="768px" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4 flex items-end gap-3">
+            <div className="max-w-2xl mx-auto mt-3 px-4">
+              <div className="relative rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
+                <div
+                  className={cn("flex", isTransitioning ? "transition-transform duration-700" : "")}
+                  style={{ transform: `translate3d(-${heroIndex * 100}%, 0, 0)` }}
+                >
+                  {carouselItems.map((item, i) => (
+                    <Link key={i} href={`/manhwa/${item.slug}`} className="min-w-full relative aspect-[16/9] sm:aspect-[21/9] block">
                       {item.cover_url && (
-                        <div className="relative w-14 aspect-[3/4] rounded-lg overflow-hidden shadow-lg flex-shrink-0">
-                          <Image src={item.cover_url} alt="" fill className="object-cover" sizes="60px" />
-                        </div>
+                        <Image src={item.cover_url} alt={item.title} fill className="object-cover" priority={i === 0} sizes="768px" />
                       )}
-                      <div className="flex-1 min-w-0 pb-0.5">
-                        <span className={cn("inline-block px-2 py-0.5 rounded text-[9px] font-bold text-white mb-1", item.status === "ongoing" ? "bg-emerald-500" : item.status === "completed" ? "bg-blue-500" : "bg-amber-500")}>
-                          {item.status === "ongoing" ? "ONGOING" : STATUS_LABELS[item.status]}
-                        </span>
-                        <h2 className="font-display font-bold text-white text-base leading-tight line-clamp-2 drop-shadow">{item.title}</h2>
-                        {item.chapters[0] && (
-                          <p className="text-white/60 text-[10px] mt-0.5">Ch. {item.chapters[0].number} · {formatDate(item.chapters[0].created_at)}</p>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-4 flex items-end gap-3">
+                        {item.cover_url && (
+                          <div className="relative w-12 aspect-[3/4] rounded-lg overflow-hidden shadow-lg flex-shrink-0">
+                            <Image src={item.cover_url} alt="" fill className="object-cover" sizes="48px" />
+                          </div>
                         )}
+                        <div className="flex-1 min-w-0">
+                          <span className={cn(
+                            "inline-block px-2 py-0.5 rounded text-[9px] font-bold text-white mb-1",
+                            item.status === "ongoing" ? "bg-emerald-500" : item.status === "completed" ? "bg-blue-500" : "bg-amber-500"
+                          )}>
+                            {STATUS_LABELS[item.status as ManhwaStatus].toUpperCase()}
+                          </span>
+                          <h2 className="font-display font-bold text-white text-base leading-tight line-clamp-2 drop-shadow">{item.title}</h2>
+                          {item.chapters[0] && (
+                            <p className="text-white/60 text-[10px] mt-0.5">Ch. {item.chapters[0].number} · {formatDate(item.chapters[0].created_at)}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-
-              {/* Arrows */}
-              {bannerItems.length > 1 && (
-                <>
-                  <button onClick={prevHero} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors">
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button onClick={nextHero} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors">
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </>
-              )}
-
-              {/* Dots */}
-              {bannerItems.length > 1 && (
-                <div className="absolute bottom-3 right-4 flex items-center gap-1.5">
-                  {bannerItems.map((_, i) => (
-                    <button key={i} onClick={() => { setHeroIndex(i); resetAuto(); }}
-                      className={cn("rounded-full transition-all", i === (heroIndex % bannerItems.length) ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/40")}
-                    />
+                    </Link>
                   ))}
                 </div>
-              )}
+
+                {bannerItems.length > 1 && (
+                  <>
+                    <button onClick={() => { setHeroIndex(p => p === 0 ? bannerItems.length - 1 : p - 1); resetAuto(); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors">
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => { setHeroIndex(p => p + 1); resetAuto(); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors">
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-3 right-4 flex items-center gap-1.5">
+                      {bannerItems.map((_, i) => (
+                        <button key={i} onClick={() => { setHeroIndex(i); resetAuto(); }}
+                          className={cn("rounded-full transition-all", i === (heroIndex % bannerItems.length) ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/40")}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
           <main className="max-w-2xl mx-auto px-4">
-            {/* Baru Update */}
-            <HorizontalSection title="Baru Update" subtitle="Chapter terbaru" items={latest} />
-
-            {/* Ongoing */}
-            {ongoing.length > 0 && (
-              <HorizontalSection title="Ongoing" subtitle={`${ongoing.length} manhwa masih berjalan`} items={ongoing} statusHref="/?status=ongoing" />
-            )}
-
-            {/* Completed */}
-            {completed.length > 0 && (
-              <HorizontalSection title="Completed" subtitle={`${completed.length} manhwa tamat`} items={completed} statusHref="/?status=completed" />
-            )}
+            <HorizontalSection title="Baru Update" subtitle="Chapter terbaru" items={manhwaList.slice(0, 12)} />
+            {ongoing.length > 0 && <HorizontalSection title="Ongoing" subtitle={`${ongoing.length} manhwa`} items={ongoing} href="/?status=ongoing" />}
+            {completed.length > 0 && <HorizontalSection title="Completed" subtitle={`${completed.length} manhwa tamat`} items={completed} href="/?status=completed" />}
 
             {/* All grid */}
             <section className="mt-8">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="font-display font-bold text-base text-gray-900">Semua Manhwa</h2>
-                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">Koleksi lengkap</p>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">Koleksi lengkap · {manhwaList.length} judul</p>
                 </div>
-                <p className="text-xs text-gray-400">{manhwaList.length} judul</p>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {manhwaList.map(m => (
@@ -321,64 +403,36 @@ export function HomeClient({ manhwaList, bannerItems, defaultQ = "", defaultStat
         </>
       )}
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 sm:hidden">
-        <div className="max-w-2xl mx-auto flex">
-          <Link href="/" className="flex-1 flex flex-col items-center py-2.5 text-red-500">
-            <BookOpen className="w-5 h-5" strokeWidth={2.5} />
-            <span className="text-[10px] mt-0.5 font-bold">Beranda</span>
-          </Link>
-          <button onClick={() => setShowSearch(s => !s)} className="flex-1 flex flex-col items-center py-2.5 text-gray-400">
-            <Search className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">Cari</span>
-          </button>
+      {/* BOTTOM NAV — floating pill */}
+      <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-50">
+        <div className="bg-white/90 backdrop-blur-md border border-gray-200 rounded-full flex justify-between items-center px-6 py-3 shadow-xl">
+          {[
+            { icon: Home, label: "Beranda", href: "/", active: pathname === "/" && !hasFilter },
+            { icon: Search, label: "Cari", href: null, onClick: () => setSearchOpen(true), active: searchOpen },
+            { icon: Bookmark, label: "Lanjut", href: "/bookmarks", active: pathname === "/bookmarks", badge: bookmarkCount },
+            { icon: Grid, label: "Genre", href: null, onClick: () => setShowGenre(true), active: showGenre },
+          ].map((item, i) => (
+            item.href ? (
+              <Link key={i} href={item.href} className={cn("flex flex-col items-center gap-1 transition-colors", item.active ? "text-red-500" : "text-gray-400 hover:text-gray-700")}>
+                <div className={cn("p-1.5 rounded-full transition-colors relative", item.active ? "bg-red-50" : "")}>
+                  <item.icon className="w-5 h-5" strokeWidth={2.5} />
+                  {item.badge ? (
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">{item.badge}</span>
+                  ) : null}
+                </div>
+                <span className={cn("text-[9px] font-bold transition-all", item.active ? "opacity-100" : "opacity-0 h-0 overflow-hidden")}>{item.label}</span>
+              </Link>
+            ) : (
+              <button key={i} onClick={item.onClick} className={cn("flex flex-col items-center gap-1 transition-colors", item.active ? "text-red-500" : "text-gray-400 hover:text-gray-700")}>
+                <div className={cn("p-1.5 rounded-full transition-colors", item.active ? "bg-red-50" : "")}>
+                  <item.icon className="w-5 h-5" strokeWidth={2.5} />
+                </div>
+                <span className={cn("text-[9px] font-bold transition-all", item.active ? "opacity-100" : "opacity-0 h-0 overflow-hidden")}>{item.label}</span>
+              </button>
+            )
+          ))}
         </div>
-      </nav>
+      </div>
     </div>
-  );
-}
-
-function HorizontalSection({ title, subtitle, items, statusHref }: {
-  title: string;
-  subtitle: string;
-  items: ManhwaWithLatestChapter[];
-  statusHref?: string;
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  function scroll(dir: "left" | "right") {
-    scrollRef.current?.scrollBy({ left: dir === "left" ? -240 : 240, behavior: "smooth" });
-  }
-
-  return (
-    <section className="mt-7">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex flex-col">
-          {statusHref ? (
-            <Link href={statusHref} className="group flex items-center gap-1">
-              <h2 className="font-display font-bold text-base text-gray-900 group-hover:text-red-500 transition-colors">{title}</h2>
-              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-red-400 transition-colors" />
-            </Link>
-          ) : (
-            <h2 className="font-display font-bold text-base text-gray-900">{title}</h2>
-          )}
-          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">{subtitle}</p>
-        </div>
-        <div className="flex gap-1.5">
-          <button onClick={() => scroll("left")} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
-            <ChevronLeft className="w-4 h-4 text-gray-500" />
-          </button>
-          <button onClick={() => scroll("right")} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
-            <ChevronRight className="w-4 h-4 text-gray-500" />
-          </button>
-        </div>
-      </div>
-      <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x">
-        {items.map(m => (
-          <div key={m.id} className="snap-start">
-            <ManhwaCard manhwa={m} />
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
