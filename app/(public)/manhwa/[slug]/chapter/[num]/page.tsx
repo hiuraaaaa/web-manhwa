@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ReaderControls } from "@/components/reader/ReaderControls";
 import { formatChapterNumber } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Home } from "lucide-react";
+import { ChevronLeft, ChevronRight, List } from "lucide-react";
 import type { Metadata } from "next";
 
 interface Props {
@@ -23,7 +23,6 @@ export default async function ChapterReaderPage({ params }: Props) {
 
   const supabase = await createClient();
 
-  // Get manhwa
   const { data: manhwa } = await supabase
     .from("manhwa")
     .select("id, title, slug")
@@ -32,7 +31,6 @@ export default async function ChapterReaderPage({ params }: Props) {
 
   if (!manhwa) notFound();
 
-  // Get this chapter with pages
   const { data: chapter } = await supabase
     .from("chapters")
     .select("*, pages(id, page_number, image_url)")
@@ -45,7 +43,6 @@ export default async function ChapterReaderPage({ params }: Props) {
   const pages = (chapter.pages as { id: string; page_number: number; image_url: string }[])
     .sort((a, b) => a.page_number - b.page_number);
 
-  // Get adjacent chapters
   const { data: allChapters } = await supabase
     .from("chapters")
     .select("number")
@@ -58,36 +55,63 @@ export default async function ChapterReaderPage({ params }: Props) {
   const nextNum = currentIdx < numbers.length - 1 ? numbers[currentIdx + 1] : null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-white">
       {/* Top bar */}
-      <div className="sticky top-0 z-50 bg-bg-base/90 backdrop-blur-md border-b border-bg-border">
-        <div className="max-w-3xl mx-auto px-4 h-12 flex items-center justify-between gap-4">
-          <Link href={`/manhwa/${slug}`} className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors min-w-0">
-            <Home className="w-4 h-4 flex-shrink-0" />
-            <span className="text-sm truncate">{manhwa.title}</span>
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-2xl mx-auto px-3 h-12 flex items-center gap-2">
+          {/* Back to manhwa */}
+          <Link
+            href={`/manhwa/${slug}`}
+            className="p-1.5 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
           </Link>
-          <span className="text-sm font-medium text-text-primary flex-shrink-0">
-            {formatChapterNumber(chapterNum)}
-          </span>
-          <div className="flex items-center gap-1">
+
+          {/* Title + chapter */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-gray-400 leading-none truncate">{manhwa.title}</p>
+            <p className="text-sm font-bold text-gray-900 leading-tight">
+              {formatChapterNumber(chapterNum)}
+            </p>
+          </div>
+
+          {/* Chapter nav */}
+          <div className="flex items-center gap-1 flex-shrink-0">
             {prevNum !== null ? (
-              <Link href={`/manhwa/${slug}/chapter/${prevNum}`} className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors">
-                <ChevronLeft className="w-4 h-4" />
+              <Link
+                href={`/manhwa/${slug}/chapter/${prevNum}`}
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                title="Chapter sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-600" />
               </Link>
-            ) : <span className="p-1.5 w-8" />}
+            ) : <span className="w-7" />}
+
+            <Link
+              href={`/manhwa/${slug}`}
+              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+              title="Daftar chapter"
+            >
+              <List className="w-4 h-4 text-gray-600" />
+            </Link>
+
             {nextNum !== null ? (
-              <Link href={`/manhwa/${slug}/chapter/${nextNum}`} className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors">
-                <ChevronRight className="w-4 h-4" />
+              <Link
+                href={`/manhwa/${slug}/chapter/${nextNum}`}
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                title="Chapter selanjutnya"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-600" />
               </Link>
-            ) : <span className="p-1.5 w-8" />}
+            ) : <span className="w-7" />}
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Pages — vertical scroll */}
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-2xl mx-auto">
         {pages.length === 0 ? (
-          <div className="flex items-center justify-center h-64 text-text-muted text-sm">
+          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
             Halaman belum tersedia
           </div>
         ) : (
@@ -107,24 +131,43 @@ export default async function ChapterReaderPage({ params }: Props) {
         )}
       </div>
 
-      {/* Bottom nav */}
-      <div className="sticky bottom-0 bg-bg-base/90 backdrop-blur-md border-t border-bg-border">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+      {/* Bottom nav bar */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-100 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+          {/* Prev */}
           {prevNum !== null ? (
-            <Link href={`/manhwa/${slug}/chapter/${prevNum}`} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-elevated text-sm text-text-secondary hover:text-text-primary hover:bg-bg-border transition-colors">
+            <Link
+              href={`/manhwa/${slug}/chapter/${prevNum}`}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700 transition-colors"
+            >
               <ChevronLeft className="w-4 h-4" /> Ch. {prevNum}
             </Link>
-          ) : <span />}
+          ) : (
+            <Link
+              href={`/manhwa/${slug}`}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" /> Detail
+            </Link>
+          )}
 
+          {/* Bookmark */}
           <ReaderControls manhwaSlug={slug} chapterNumber={chapterNum} manhwaTitle={manhwa.title} />
 
+          {/* Next */}
           {nextNum !== null ? (
-            <Link href={`/manhwa/${slug}/chapter/${nextNum}`} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm text-white transition-colors">
+            <Link
+              href={`/manhwa/${slug}/chapter/${nextNum}`}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-sm font-semibold text-white transition-colors"
+            >
               Ch. {nextNum} <ChevronRight className="w-4 h-4" />
             </Link>
           ) : (
-            <Link href={`/manhwa/${slug}`} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-elevated text-sm text-text-secondary hover:text-text-primary transition-colors">
-              Selesai
+            <Link
+              href={`/manhwa/${slug}`}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700 transition-colors"
+            >
+              Selesai <ChevronRight className="w-4 h-4" />
             </Link>
           )}
         </div>

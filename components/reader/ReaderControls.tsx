@@ -36,13 +36,13 @@ export function ReaderControls({ manhwaSlug, manhwaTitle, chapterNumber }: Props
   return (
     <button
       onClick={toggleBookmark}
-      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors text-text-secondary hover:text-accent"
+      className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-colors text-gray-500 hover:text-red-500 hover:bg-red-50"
       title={bookmarked ? "Hapus bookmark" : "Bookmark chapter ini"}
     >
       {bookmarked ? (
-        <BookmarkCheck className="w-4 h-4 text-accent" />
+        <BookmarkCheck className="w-5 h-5 text-red-500" />
       ) : (
-        <Bookmark className="w-4 h-4" />
+        <Bookmark className="w-5 h-5" />
       )}
     </button>
   );
