@@ -27,7 +27,7 @@ export default async function AdminManhwaPage() {
           <p className="text-sm text-gray-400 mt-0.5">{manhwaList?.length ?? 0} judul</p>
         </div>
         <Link
-          href="/admin/(protected)/manhwa/new"
+          href="/admin/manhwa/new"
           className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
         >
           <Plus className="w-4 h-4" /> Tambah
@@ -41,7 +41,7 @@ export default async function AdminManhwaPage() {
           </div>
           <p className="font-semibold text-gray-700 mb-1">Belum ada manhwa</p>
           <p className="text-sm text-gray-400 mb-4">Mulai dengan menambahkan manhwa pertama</p>
-          <Link href="/admin/(protected)/manhwa/new" className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 text-white text-sm rounded-xl font-semibold">
+          <Link href="/admin/manhwa/new" className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 text-white text-sm rounded-xl font-semibold">
             <Plus className="w-4 h-4" /> Tambah Manhwa
           </Link>
         </div>
@@ -74,14 +74,14 @@ export default async function AdminManhwaPage() {
               {/* Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
                 <Link
-                  href={`/admin/(protected)/manhwa/${m.id}/chapters`}
+                  href={`/admin/manhwa/${m.id}/chapters`}
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                   title="Kelola chapter"
                 >
                   <BookOpen className="w-4 h-4" />
                 </Link>
                 <Link
-                  href={`/admin/(protected)/manhwa/${m.id}/edit`}
+                  href={`/admin/manhwa/${m.id}/edit`}
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                   title="Edit"
                 >

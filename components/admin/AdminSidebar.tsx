@@ -9,7 +9,7 @@ import { useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/(protected)/manhwa", label: "Manhwa", icon: BookMarked, exact: false },
+  { href: "/admin/manhwa", label: "Manhwa", icon: BookMarked, exact: false },
 ];
 
 interface Props {
@@ -44,7 +44,7 @@ export function AdminSidebar({ userEmail }: Props) {
       {/* Add button */}
       <div className="px-4 pt-4 pb-2">
         <Link
-          href="/admin/(protected)/manhwa/new"
+          href="/admin/manhwa/new"
           onClick={() => setOpen(false)}
           className="flex items-center justify-center gap-2 w-full py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
         >

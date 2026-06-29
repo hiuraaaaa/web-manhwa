@@ -26,7 +26,7 @@ export default async function AdminDashboardPage() {
           <p className="text-sm text-gray-400 mt-0.5">Kelola koleksi manhwa lo</p>
         </div>
         <Link
-          href="/admin/(protected)/manhwa/new"
+          href="/admin/manhwa/new"
           className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
         >
           <Plus className="w-4 h-4" /> Tambah
@@ -59,7 +59,7 @@ export default async function AdminDashboardPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Baru Diupdate</h2>
-          <Link href="/admin/(protected)/manhwa" className="text-xs text-red-500 hover:underline flex items-center gap-0.5">
+          <Link href="/admin/manhwa" className="text-xs text-red-500 hover:underline flex items-center gap-0.5">
             Lihat semua <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
@@ -69,7 +69,7 @@ export default async function AdminDashboardPage() {
           recentManhwa.map((m, i) => (
             <Link
               key={m.id}
-              href={`/admin/(protected)/manhwa/${m.id}/chapters`}
+              href={`/admin/manhwa/${m.id}/chapters`}
               className={`flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors group ${i !== 0 ? "border-t border-gray-100" : ""}`}
             >
               <div className="flex items-center gap-3 min-w-0">
